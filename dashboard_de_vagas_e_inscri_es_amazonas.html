@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoramento de Vagas e Inscrições – Amazonas (11/2026)</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- PapaParse via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50:  '#fff7ed',
+              100: '#ffedd5',
+              200: '#fed7aa',
+              300: '#fdba74',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              900: '#7c2d12',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #fff7ed;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #fdba74;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f97316;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- Container de Notificações Toast -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- =========================================================================
+       CABEÇALHO INSTITUCIONAL (PALETA BRANCA E LARANJA)
+  ========================================================================== -->
+  <header class="bg-white border-b-2 border-brand-500 shadow-sm sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        
+        <!-- Logo e Título -->
+        <div class="flex items-start sm:items-center gap-3.5">
+          <div class="bg-brand-500 text-white p-3 rounded-2xl shadow-md shadow-brand-500/20 shrink-0">
+            <i data-lucide="bar-chart-3" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-100 text-brand-700 border border-brand-200">
+                1º ANO DE FORMAÇÃO • 11/2026
+              </span>
+              <span class="text-xs font-semibold text-slate-500">
+                CONSED • CONSEC • UNDIME AMAZONAS
+              </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+              Monitoramento de Vagas e Inscrições – Amazonas
+            </h1>
+            <p class="text-xs text-slate-500 mt-0.5">
+              62 Registros Territoriais • 9 Pólos Educacionais • Meta Oficial: <strong class="text-brand-600">2.353 Vagas</strong>
+            </p>
+          </div>
+        </div>
+
+        <!-- Status Ao Vivo (Streaming) e Controles Rápidos -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Badge de Streaming -->
+          <div id="live-badge" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-brand-50 border border-brand-200 text-xs font-semibold text-brand-800">
+            <span class="relative flex h-2.5 w-2.5">
+              <span id="live-ping" class="hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+              <span id="live-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400"></span>
+            </span>
+            <span id="live-status-label">Streaming Off-line</span>
+            <span id="stream-countdown" class="text-[11px] font-mono text-brand-600 font-bold"></span>
+          </div>
+
+          <button onclick="toggleStreamPanel()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white shadow-sm shadow-brand-500/20 transition cursor-pointer">
+            <i data-lucide="radio" class="w-4 h-4"></i>
+            <span>Configurar Streaming</span>
+          </button>
+
+          <button onclick="exportConsolidatedCSV()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 transition cursor-pointer">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Exportar CSV</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+    <!-- =========================================================================
+         PAINEL DE VINCULAÇÃO EM STREAMING (GOOGLE SHEETS / CSV)
+    ========================================================================== -->
+    <section id="stream-panel" class="bg-white rounded-2xl shadow-sm border border-brand-200 overflow-hidden">
+      <div class="bg-brand-50/80 px-5 py-3.5 border-b border-brand-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-brand-500 text-white rounded-xl">
+            <i data-lucide="rss" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-900">
+              Conexão em Streaming com a Planilha de Respostas (Google Forms / Sheets)
+            </h2>
+            <p class="text-xs text-slate-600">
+              Cole o link da planilha para sincronizar automaticamente as novas respostas em tempo real.
+            </p>
+          </div>
+        </div>
+        <button onclick="toggleStreamPanel()" class="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-brand-100 transition cursor-pointer" title="Recolher/Expandir">
+          <i data-lucide="chevron-up" id="stream-chevron" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="stream-panel-body" class="p-5 space-y-5">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          
+          <!-- Input do Link e Frequência de Streaming -->
+          <div class="lg:col-span-8 space-y-3">
+            <label for="sheets-url-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              1. Link da Planilha Google Sheets de Respostas
+            </label>
+            <div class="flex flex-col sm:flex-row gap-2.5">
+              <input 
+                type="url" 
+                id="sheets-url-input" 
+                placeholder="https://docs.google.com/spreadsheets/d/SEU_ID_DA_PLANILHA/edit?usp=sharing" 
+                class="flex-1 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              />
+              <button onclick="startStreamingConnection()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-sm transition shrink-0 cursor-pointer">
+                <i data-lucide="play" class="w-4 h-4"></i>
+                <span>Conectar em Streaming</span>
+              </button>
+            </div>
+
+            <!-- Controles de Intervalo de Streaming -->
+            <div class="flex flex-wrap items-center gap-3 pt-1">
+              <div class="flex items-center gap-2">
+                <label for="stream-interval-select" class="text-xs font-semibold text-slate-600">
+                  Frequência de Atualização:
+                </label>
+                <select id="stream-interval-select" onchange="changeStreamInterval()" class="rounded-lg border border-brand-200 bg-brand-50/50 px-2.5 py-1.5 text-xs font-semibold text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="10">Tempo Real (a cada 10s)</option>
+                  <option value="30" selected>Rápido (a cada 30s)</option>
+                  <option value="60">Normal (a cada 1 min)</option>
+                  <option value="0">Pausado (Manual)</option>
+                </select>
+              </div>
+
+              <button onclick="fetchStreamNow(true)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-brand-50 text-brand-700 border border-brand-200 text-xs font-semibold transition cursor-pointer">
+                <i data-lucide="refresh-cw" id="manual-sync-icon" class="w-3.5 h-3.5"></i>
+                <span>Atualizar Agora</span>
+              </button>
+
+              <span id="last-sync-timestamp" class="text-xs text-slate-500">
+                Última leitura: aguardando conexão
+              </span>
+            </div>
+
+            <div class="bg-brand-50 border border-brand-200 rounded-xl p-3 text-xs text-slate-700 flex items-start gap-2">
+              <i data-lucide="info" class="w-4 h-4 text-brand-600 shrink-0 mt-0.5"></i>
+              <span>
+                <strong>Importante:</strong> No Google Sheets, clique em <em>Compartilhar &rarr; Acesso geral &rarr; Qualquer pessoa com o link (Leitor)</em> para permitir que o streaming leia as respostas continuamente.
+              </span>
+            </div>
+          </div>
+
+          <!-- Coluna Direita: CSV Local e Simulação Ao Vivo -->
+          <div class="lg:col-span-4 bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-between space-y-3">
+            <div>
+              <span class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                2. Upload CSV ou Teste ao Vivo
+              </span>
+              <label class="flex items-center justify-center gap-2 w-full px-3.5 py-2.5 bg-white border border-dashed border-brand-300 hover:border-brand-500 rounded-xl text-xs font-semibold text-slate-700 hover:text-brand-700 cursor-pointer transition">
+                <i data-lucide="file-up" class="w-4 h-4 text-brand-500"></i>
+                <span id="csv-file-label" class="truncate">Importar arquivo .CSV local</span>
+                <input type="file" id="csv-file-input" accept=".csv,text/csv" class="hidden" onchange="handleLocalCsvUpload(event)" />
+              </label>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200 space-y-2">
+              <button id="btn-live-sim" onclick="toggleLiveSimulation()" class="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-sm transition cursor-pointer">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span id="btn-live-sim-text">Simular Inscrições ao Vivo</span>
+              </button>
+              <button onclick="resetAllSubscriptions()" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-300 text-xs font-medium transition cursor-pointer">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Parar e Zerar Inscrições</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mapeamento de Colunas (Exibido quando uma planilha/CSV é carregada) -->
+        <div id="mapping-section" class="hidden pt-4 border-t border-slate-200">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+              <i data-lucide="columns" class="w-4 h-4 text-brand-600"></i>
+              Mapeamento das Colunas do Formulário
+            </h3>
+            <span id="rows-loaded-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-100 text-brand-800">
+              0 registros lidos
+            </span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-brand-50/40 p-3.5 rounded-xl border border-brand-100">
+            <div>
+              <label for="col-municipio" class="block text-xs font-semibold text-slate-700 mb-1">Coluna do Município *</label>
+              <select id="col-municipio" onchange="processRawRows()" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none"></select>
+            </div>
+            <div>
+              <label for="col-curso" class="block text-xs font-semibold text-slate-700 mb-1">Coluna do Curso (Prof. / AEE) *</label>
+              <select id="col-curso" onchange="processRawRows()" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none"></select>
+            </div>
+            <div>
+              <label for="col-rede" class="block text-xs font-semibold text-slate-700 mb-1">Coluna da Rede (Mun. / Est.) *</label>
+              <select id="col-rede" onchange="processRawRows()" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:ring-2 focus:ring-brand-500 focus:outline-none"></select>
+            </div>
+          </div>
+          <p id="unmatched-alert" class="hidden mt-2 text-xs text-brand-900 bg-brand-100 border border-brand-300 rounded-lg px-3 py-2"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         KPIS RESUMIDOS NO TOPO
+    ========================================================================== -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Limite Máximo Total</span>
+          <span class="p-2 rounded-xl bg-brand-50 text-brand-600"><i data-lucide="target" class="w-5 h-5"></i></span>
+        </div>
+        <p id="kpi-max-vagas" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">2.353</p>
+        <p class="text-xs text-slate-500 mt-1">1.353 Prof. + 1.000 AEE</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Inscrições Recebidas</span>
+          <span class="p-2 rounded-xl bg-brand-500 text-white"><i data-lucide="users" class="w-5 h-5"></i></span>
+        </div>
+        <p id="kpi-total-inscritos" class="text-2xl sm:text-3xl font-extrabold text-brand-600 mt-2">0</p>
+        <p class="text-xs text-slate-500 mt-1">Ocupação geral: <strong id="kpi-pct-geral" class="text-slate-800">0,0%</strong></p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Faltam para o Máximo</span>
+          <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600"><i data-lucide="check-circle" class="w-5 h-5"></i></span>
+        </div>
+        <p id="kpi-faltam-vagas" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">2.353</p>
+        <p class="text-xs text-slate-500 mt-1">Vagas ainda disponíveis</p>
+      </div>
+
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Ultrapassou o Máximo</span>
+          <span class="p-2 rounded-xl bg-rose-50 text-rose-600"><i data-lucide="alert-triangle" class="w-5 h-5"></i></span>
+        </div>
+        <p id="kpi-excedentes" class="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-2">0</p>
+        <p class="text-xs text-slate-500 mt-1"><strong id="kpi-mun-excedentes" class="text-slate-800">0</strong> município(s) acima do teto</p>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SEÇÃO 1 (ACIMA DOS GRÁFICOS): TABELA CONSOLIDADA DE TODOS OS MUNICÍPIOS
+    ========================================================================== -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-5 bg-white border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-6 rounded-full bg-brand-500"></span>
+            <h2 class="text-lg font-extrabold text-slate-900">
+              Quadro Geral por Município – Inscrições, Saldo Restante e Excedentes
+            </h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Todos os 62 registros territoriais listados com o quantitativo de inscrições, quanto falta para atingir o limite máximo ou quanto ultrapassou.
+          </p>
+        </div>
+
+        <!-- Filtros rápidos da Tabela Superior -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="top-table-search" 
+              oninput="renderTopSummaryTable()" 
+              placeholder="Buscar município ou polo..." 
+              class="pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          <select id="top-table-status" onchange="renderTopSummaryTable()" class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <option value="TODOS">Todos os Status (62)</option>
+            <option value="DISPONIVEL">Com Vagas Disponíveis</option>
+            <option value="LOTADO">No Limite Máximo (100%)</option>
+            <option value="EXCEDENTE">Ultrapassou o Máximo (&gt;100%)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tabela com Cabeçalho Fixo e Rolagem Controlada -->
+      <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 z-10 bg-brand-50 border-b-2 border-brand-200 text-[11px] font-bold uppercase tracking-wider text-brand-950">
+            <tr>
+              <th class="py-3.5 px-4">Polo Educacional</th>
+              <th class="py-3.5 px-4">Município</th>
+              <th class="py-3.5 px-3 text-center">Detalhamento Vagas<br><span class="text-[10px] font-normal text-slate-500">Prof (M/E) • AEE (M/E)</span></th>
+              <th class="py-3.5 px-3 text-center">Máximo<br>de Vagas</th>
+              <th class="py-3.5 px-3 text-center">Quantitativo<br>de Inscrições</th>
+              <th class="py-3.5 px-4 text-center">Faltam para o Máximo</th>
+              <th class="py-3.5 px-4 text-center">Ultrapassou o Máximo</th>
+              <th class="py-3.5 px-4 min-w-[150px]">Progresso</th>
+            </tr>
+          </thead>
+          <tbody id="top-summary-tbody" class="divide-y divide-slate-200 text-sm">
+            <!-- Preenchido via JS -->
+          </tbody>
+          <tfoot id="top-summary-tfoot" class="sticky bottom-0 z-10 bg-slate-900 text-white font-bold text-xs">
+            <!-- Totais via JS -->
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SEÇÃO 2 (MEIO): GRÁFICOS DE PIZZA E BARRAS FILTRADOS POR POLO
+    ========================================================================== -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 space-y-6">
+      <!-- Barra de Cabeçalho e Filtro Global por Polo -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-6 rounded-full bg-brand-500"></span>
+            <h2 class="text-lg font-extrabold text-slate-900">
+              Análise Visual por Pólo Educacional (Pizza &amp; Barras)
+            </h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">
+            Selecione um Pólo Educacional para visualizar a distribuição proporcional (Pizza) e o comparativo por município (Barras).
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2 bg-brand-50 px-3.5 py-2 rounded-xl border border-brand-200">
+            <i data-lucide="map-pin" class="w-4 h-4 text-brand-600"></i>
+            <label for="polo-chart-filter" class="text-xs font-bold text-brand-900 whitespace-nowrap">
+              Filtrar por Pólo:
+            </label>
+            <select id="polo-chart-filter" onchange="updatePoloCharts()" class="bg-white border border-brand-300 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="TODOS">Todos os Pólos (Consolidado)</option>
+              <option value="POLO MANAUS" selected>POLO MANAUS (11 municípios)</option>
+              <option value="POLO BAIXO AMAZONAS (PARINTINS)">POLO BAIXO AMAZONAS (PARINTINS) (10 municípios)</option>
+              <option value="POLO JURUÁ">POLO JURUÁ (7 municípios)</option>
+              <option value="POLO DO MADEIRA">POLO DO MADEIRA (6 municípios)</option>
+              <option value="POLO BAIXO SOLIMÕES">POLO BAIXO SOLIMÕES (5 municípios)</option>
+              <option value="POLO PURUS">POLO PURUS (6 municípios)</option>
+              <option value="POLO RIO NEGRO">POLO RIO NEGRO (3 municípios)</option>
+              <option value="POLO MÉDIO SOLIMÕES">POLO MÉDIO SOLIMÕES (6 municípios)</option>
+              <option value="POLO ALTO SOLIMÕES">POLO ALTO SOLIMÕES (8 municípios)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid dos 2 Gráficos Lado a Lado -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Gráfico de Pizza (Esquerda) -->
+        <div class="lg:col-span-5 bg-slate-50/70 rounded-2xl p-4 sm:p-5 border border-slate-200 flex flex-col">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Gráfico de Pizza – Proporção por Município</h3>
+              <p id="pie-chart-subtitle" class="text-xs text-slate-500">Participação percentual dentro do polo selecionado</p>
+            </div>
+            <select id="pie-metric-mode" onchange="updatePoloCharts()" class="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="AUTO">Automático (Inscritos / Vagas)</option>
+              <option value="VAGAS">Vagas Ofertadas</option>
+              <option value="INSCRITOS">Inscrições Recebidas</option>
+            </select>
+          </div>
+          <div class="relative flex-1 min-h-[300px] w-full flex items-center justify-center">
+            <canvas id="chart-polo-pie"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico de Barras (Direita) -->
+        <div class="lg:col-span-7 bg-slate-50/70 rounded-2xl p-4 sm:p-5 border border-slate-200 flex flex-col">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Gráfico de Barras – Vagas Máximas vs. Inscrições por Município</h3>
+              <p id="bar-chart-subtitle" class="text-xs text-slate-500">Comparativo município a município no polo filtrado</p>
+            </div>
+            <span id="polo-chart-badge" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-brand-100 text-brand-800">
+              POLO MANAUS
+            </span>
+          </div>
+          <div class="relative flex-1 min-h-[300px] w-full">
+            <canvas id="chart-polo-bar"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =========================================================================
+         SEÇÃO 3 (PARTE DE BAIXO): FILTRO POR MUNICÍPIO, QUANTITATIVO TOTAL E REGISTROS
+    ========================================================================== -->
+    <section class="bg-white rounded-2xl shadow-sm border-2 border-brand-200 overflow-hidden">
+      <!-- Cabeçalho com Seletor de Município -->
+      <div class="p-5 sm:p-6 bg-gradient-to-r from-brand-50 to-white border-b border-brand-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-6 rounded-full bg-brand-600"></span>
+            <h2 class="text-lg font-extrabold text-slate-900">
+              Consulta Detalhada por Município &amp; Registros Individuais
+            </h2>
+          </div>
+          <p class="text-xs text-slate-600 mt-1">
+            Filtre pelo município desejado para inspecionar o quantitativo total por curso/rede e visualizar cada inscrição recebida da planilha.
+          </p>
+        </div>
+
+        <!-- Seletor de Município -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <label for="bottom-municipality-filter" class="text-xs font-bold uppercase tracking-wider text-brand-900">
+            Município:
+          </label>
+          <select id="bottom-municipality-filter" onchange="renderBottomMunicipalitySection()" class="min-w-[240px] bg-white border-2 border-brand-400 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <option value="TODOS">Todos os Municípios (62 registros)</option>
+            <!-- Opções populadas dinamicamente em ordem alfabética -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Cards do Quantitativo Total do Município Selecionado -->
+      <div class="p-5 sm:p-6 bg-slate-50/60 border-b border-slate-200 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 id="bottom-selected-title" class="text-base font-extrabold text-slate-900">
+            Quantitativo Total: Todos os Municípios do Amazonas
+          </h3>
+          <span id="bottom-selected-polo-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-brand-100 text-brand-800 border border-brand-200">
+            9 Pólos Educacionais
+          </span>
+        </div>
+
+        <!-- Grid 5 Cards: Geral + 4 Eixos (Prof Mun, Prof Est, AEE Mun, AEE Est) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          <!-- Card Total Geral do Município -->
+          <div class="bg-brand-600 text-white rounded-2xl p-4 shadow-sm">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-brand-100">Total Geral Inscritos</span>
+            <div class="flex items-baseline gap-1.5 mt-1">
+              <span id="bm-tot-ins" class="text-2xl font-extrabold">0</span>
+              <span class="text-xs text-brand-100">/ <span id="bm-tot-max">2.353</span> vagas</span>
+            </div>
+            <p id="bm-tot-status" class="text-xs font-semibold text-brand-100 mt-2 pt-2 border-t border-brand-500">
+              Faltam 2.353 vagas
+            </p>
+          </div>
+
+          <!-- Card Professores Municipal -->
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Professores • Municipal</span>
+            <div class="flex items-baseline gap-1.5 mt-1">
+              <span id="bm-pm-ins" class="text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs text-slate-500">/ <span id="bm-pm-max">682</span></span>
+            </div>
+            <p id="bm-pm-diff" class="text-xs font-semibold text-emerald-700 mt-2 pt-2 border-t border-slate-100">
+              Faltam 682
+            </p>
+          </div>
+
+          <!-- Card Professores Estadual -->
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Professores • Estadual</span>
+            <div class="flex items-baseline gap-1.5 mt-1">
+              <span id="bm-pe-ins" class="text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs text-slate-500">/ <span id="bm-pe-max">671</span></span>
+            </div>
+            <p id="bm-pe-diff" class="text-xs font-semibold text-emerald-700 mt-2 pt-2 border-t border-slate-100">
+              Faltam 671
+            </p>
+          </div>
+
+          <!-- Card AEE Municipal -->
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">AEE • Municipal</span>
+            <div class="flex items-baseline gap-1.5 mt-1">
+              <span id="bm-am-ins" class="text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs text-slate-500">/ <span id="bm-am-max">500</span></span>
+            </div>
+            <p id="bm-am-diff" class="text-xs font-semibold text-emerald-700 mt-2 pt-2 border-t border-slate-100">
+              Faltam 500
+            </p>
+          </div>
+
+          <!-- Card AEE Estadual -->
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">AEE • Estadual</span>
+            <div class="flex items-baseline gap-1.5 mt-1">
+              <span id="bm-ae-ins" class="text-2xl font-extrabold text-slate-900">0</span>
+              <span class="text-xs text-slate-500">/ <span id="bm-ae-max">500</span></span>
+            </div>
+            <p id="bm-ae-diff" class="text-xs font-semibold text-emerald-700 mt-2 pt-2 border-t border-slate-100">
+              Faltam 500
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela de Registros Individuais de Inscrição -->
+      <div class="p-5 sm:p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h4 class="text-sm font-bold text-slate-900">
+              Registros Individuais de Inscrição (<span id="bottom-records-count" class="text-brand-600">0</span> registros encontrados)
+            </h4>
+            <p class="text-xs text-slate-500">
+              Listagem das respostas vinculadas da planilha para o filtro de município selecionado.
+            </p>
+          </div>
+
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="bottom-record-search" 
+              oninput="renderBottomRecordsTable()" 
+              placeholder="Filtrar nos registros..." 
+              class="pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-100 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              <tr>
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4">Data / Hora</th>
+                <th class="py-3 px-4">Município</th>
+                <th class="py-3 px-4">Curso</th>
+                <th class="py-3 px-4">Rede</th>
+                <th class="py-3 px-4">Identificação / Dados Extras</th>
+                <th class="py-3 px-4 text-right">Situação da Vaga</th>
+              </tr>
+            </thead>
+            <tbody id="bottom-records-tbody" class="divide-y divide-slate-200 text-xs sm:text-sm">
+              <!-- Registros renderizados via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Rodapé -->
+  <footer class="bg-white border-t border-slate-200 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <p>Divisão Territorial por Pólos Educacionais das Secretarias de Educação – Amazonas (11/2026).</p>
+      <p class="font-medium text-brand-700">Dashboard Interativo • Paleta Branca &amp; Laranja • Streaming Ativo</p>
+    </div>
+  </footer>
+
+  <script>
+    /**
+     * ============================================================================
+     * 1. BASE OFICIAL DOS 62 REGISTROS DO DOCUMENTO PDF (TOTAL: 2.353 VAGAS)
+     * ============================================================================
+     */
+    const OFFICIAL_MUNICIPALITIES = [
+      // POLO MANAUS (1º Bimestre) - 11 registros
+      { id: 1, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Manaus", profMun: 150, profEst: 150, aeeMun: 110, aeeEst: 112 },
+      { id: 2, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Manacapuru", profMun: 15, profEst: 15, aeeMun: 10, aeeEst: 14 },
+      { id: 3, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Presidente Figueiredo", profMun: 8, profEst: 0, aeeMun: 6, aeeEst: 0, noPublicEst: true },
+      { id: 4, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Novo Airão", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 5, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Iranduba", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 6, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Rio Preto da Eva", profMun: 8, profEst: 0, aeeMun: 6, aeeEst: 0, noPublicEst: true },
+      { id: 7, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Caapiranga", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 8, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Careiro da Várzea", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 9, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Itapiranga", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 10, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Autazes", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 11, polo: "POLO MANAUS", bimestre: "1º Bimestre", municipio: "Careiro", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+
+      // POLO BAIXO AMAZONAS (PARINTINS) (1º Bimestre) - 10 registros
+      { id: 12, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Parintins", profMun: 15, profEst: 15, aeeMun: 10, aeeEst: 12 },
+      { id: 13, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Barreirinha", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 14, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Nhamundá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 15, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Maués", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 16, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Boa Vista do Ramos", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 17, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Urucurituba", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 18, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "São Sebastião do Uatumã", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 19, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Silves", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 20, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Urucará", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 21, polo: "POLO BAIXO AMAZONAS (PARINTINS)", bimestre: "1º Bimestre", municipio: "Itacoatiara", profMun: 20, profEst: 20, aeeMun: 8, aeeEst: 12 },
+
+      // POLO JURUÁ (2º Bimestre) - 7 registros
+      { id: 22, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Juruá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 23, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Itamarati", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 24, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Carauarí", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 25, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Eirunepé", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 26, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Ipixuna", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 27, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Envira", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 28, polo: "POLO JURUÁ", bimestre: "2º Bimestre", municipio: "Gujará", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+
+      // POLO DO MADEIRA (2º Bimestre) - 6 registros
+      { id: 29, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Humaitá", profMun: 10, profEst: 10, aeeMun: 8, aeeEst: 6 },
+      { id: 30, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Borba", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 31, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Manicoré", profMun: 10, profEst: 10, aeeMun: 8, aeeEst: 6 },
+      { id: 32, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Apuí", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 33, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Novo Aripuanã", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 34, polo: "POLO DO MADEIRA", bimestre: "2º Bimestre", municipio: "Nova Olinda do Norte", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+
+      // POLO BAIXO SOLIMÕES (2º Bimestre) - 5 registros
+      { id: 35, polo: "POLO BAIXO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Anamã", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 36, polo: "POLO BAIXO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Anorí", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 37, polo: "POLO BAIXO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Caapiranga", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 38, polo: "POLO BAIXO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Codajás", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 39, polo: "POLO BAIXO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Coari", profMun: 10, profEst: 10, aeeMun: 6, aeeEst: 8 },
+
+      // POLO PURUS (2º Bimestre) - 6 registros
+      { id: 40, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Pauiní", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 41, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Tapauá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 42, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Beruri", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 43, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Boca do Acre", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 44, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Canutama", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 45, polo: "POLO PURUS", bimestre: "2º Bimestre", municipio: "Lábrea", profMun: 10, profEst: 10, aeeMun: 6, aeeEst: 6 },
+
+      // POLO RIO NEGRO (2º Bimestre) - 3 registros
+      { id: 46, polo: "POLO RIO NEGRO", bimestre: "2º Bimestre", municipio: "São Gabriel", profMun: 12, profEst: 12, aeeMun: 8, aeeEst: 8 },
+      { id: 47, polo: "POLO RIO NEGRO", bimestre: "2º Bimestre", municipio: "Barcelos", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 48, polo: "POLO RIO NEGRO", bimestre: "2º Bimestre", municipio: "Santa Isabel", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+
+      // POLO MÉDIO SOLIMÕES (2º Bimestre) - 6 registros
+      { id: 49, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Alvarães", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 50, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Japurá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 51, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Maraã", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 52, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Tefé", profMun: 14, profEst: 15, aeeMun: 10, aeeEst: 10 },
+      { id: 53, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Uariní", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 54, polo: "POLO MÉDIO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Fonte Boa", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+
+      // POLO ALTO SOLIMÕES (2º Bimestre) - 8 registros
+      { id: 55, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Tonantins", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 56, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Atalaia do Norte", profMun: 8, profEst: 10, aeeMun: 6, aeeEst: 6 },
+      { id: 57, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Tabatinga", profMun: 8, profEst: 10, aeeMun: 8, aeeEst: 10 },
+      { id: 58, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Benjamin Constant", profMun: 8, profEst: 8, aeeMun: 8, aeeEst: 8 },
+      { id: 59, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Amaturá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 60, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "São Paulo de Olivença", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 61, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Santo Antônio do Içá", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 },
+      { id: 62, polo: "POLO ALTO SOLIMÕES", bimestre: "2º Bimestre", municipio: "Jutaí", profMun: 8, profEst: 8, aeeMun: 6, aeeEst: 6 }
+    ];
+
+    /**
+     * ============================================================================
+     * 2. ESTADO GLOBAL E CONFIGURAÇÃO DE STREAMING
+     * ============================================================================
+     */
+    const STORAGE_KEY = 'am_vagas_orange_stream_v1';
+
+    let state = {
+      municipalities: [],       // Lista dos 62 registros enriquecida com contadores
+      individualRecords: [],    // Lista de registros individuais processados
+      rawRows: [],              // Linhas brutas do CSV/Sheets
+      headers: [],              // Colunas detectadas
+      mapping: {
+        municipio: '',
+        curso: '',
+        rede: ''
+      },
+      sheetsUrl: '',
+      streamTimer: null,
+      countdownTimer: null,
+      secondsRemaining: 0,
+      simTimer: null,
+      isSimulating: false,
+      charts: {
+        pie: null,
+        bar: null
+      }
+    };
+
+    const MUNICIPIO_ALIASES = {
+      'sao gabriel da cachoeira': 'sao gabriel',
+      'santa isabel do rio negro': 'santa isabel',
+      'guajara': 'guajara',
+      'carauari': 'carauari',
+      'pauini': 'pauini',
+      'anori': 'anori',
+      'uarini': 'uarini',
+      'maraa': 'maraa',
+      'sao sebastiao do uatuma': 'sao sebastiao do uatuma',
+      'sao paulo de olivenca': 'sao paulo de olivenca',
+      'santo antonio do ica': 'santo antonio do ica'
+    };
+
+    function normalizeText(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function resolveMunicipioKey(raw) {
+      let norm = normalizeText(raw).replace(/\s+(am|amazonas)$/, '').trim();
+      return MUNICIPIO_ALIASES[norm] || norm;
+    }
+
+    function formatNumber(n) {
+      return Number(n || 0).toLocaleString('pt-BR');
+    }
+
+    function formatPercent(val) {
+      return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg, type = 'orange') {
+      const container = document.getElementById('toast-container');
+      const styles = {
+        orange: 'bg-brand-600 text-white border-brand-700',
+        success: 'bg-emerald-700 text-white border-emerald-800',
+        error: 'bg-rose-700 text-white border-rose-800',
+        dark: 'bg-slate-900 text-white border-slate-800'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-semibold transition-all duration-300 transform translate-y-2 opacity-0 ${styles[type] || styles.orange}`;
+      el.innerHTML = `<i data-lucide="bell" class="w-4 h-4 shrink-0"></i><span>${msg}</span>`;
+      container.appendChild(el);
+      lucide.createIcons();
+      requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+      setTimeout(() => {
+        el.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => el.remove(), 300);
+      }, 4000);
+    }
+
+    function buildFreshMunicipalities() {
+      return OFFICIAL_MUNICIPALITIES.map(m => ({
+        ...m,
+        maxVagas: m.profMun + m.profEst + m.aeeMun + m.aeeEst,
+        insProfMun: 0,
+        insProfEst: 0,
+        insAeeMun: 0,
+        insAeeEst: 0,
+        totalInscritos: 0
+      }));
+    }
+
+    /**
+     * ============================================================================
+     * 3. CONEXÃO EM STREAMING COM GOOGLE SHEETS / CSV
+     * ============================================================================
+     */
+    function convertSheetsLinkToCsv(url) {
+      const clean = (url || '').trim();
+      if (!clean) return null;
+      if (clean.includes('tqx=out:csv') || clean.includes('format=csv')) return clean;
+
+      const match = clean.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (!match || !match[1]) return clean;
+
+      const id = match[1];
+      const gidMatch = clean.match(/[#&?]gid=([0-9]+)/);
+      const gid = gidMatch && gidMatch[1] ? `&gid=${gidMatch[1]}` : '';
+      return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid}`;
+    }
+
+    function startStreamingConnection() {
+      const urlInput = document.getElementById('sheets-url-input').value.trim();
+      if (!urlInput) {
+        showToast('Cole o link da sua planilha do Google Sheets primeiro.', 'error');
+        return;
+      }
+
+      stopSimulationTimer();
+      state.sheetsUrl = urlInput;
+      saveStateToStorage();
+
+      fetchStreamNow(true);
+      scheduleStreamingLoop();
+    }
+
+    function scheduleStreamingLoop() {
+      clearInterval(state.streamTimer);
+      clearInterval(state.countdownTimer);
+
+      const intervalSec = parseInt(document.getElementById('stream-interval-select').value, 10);
+      if (!state.sheetsUrl || intervalSec <= 0) {
+        updateLiveBadge('paused', 'Streaming Pausado', '');
+        return;
+      }
+
+      state.secondsRemaining = intervalSec;
+      updateLiveBadge('live', 'AO VIVO • Streaming', `(${state.secondsRemaining}s)`);
+
+      state.countdownTimer = setInterval(() => {
+        state.secondsRemaining--;
+        if (state.secondsRemaining <= 0) {
+          state.secondsRemaining = intervalSec;
+        }
+        document.getElementById('stream-countdown').textContent = `(${state.secondsRemaining}s)`;
+      }, 1000);
+
+      state.streamTimer = setInterval(() => {
+        fetchStreamNow(false);
+      }, intervalSec * 1000);
+    }
+
+    function changeStreamInterval() {
+      if (state.sheetsUrl) {
+        scheduleStreamingLoop();
+        showToast('Intervalo de streaming atualizado.', 'orange');
+      }
+    }
+
+    async function fetchStreamNow(notify = false) {
+      if (!state.sheetsUrl) {
+        if (notify) showToast('Nenhum link de planilha vinculado.', 'error');
+        return;
+      }
+
+      const csvUrl = convertSheetsLinkToCsv(state.sheetsUrl);
+      const icon = document.getElementById('manual-sync-icon');
+      icon.classList.add('animate-spin');
+
+      try {
+        const noCacheUrl = csvUrl + (csvUrl.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+        const res = await fetch(noCacheUrl);
+        if (!res.ok) throw new Error(`Status HTTP ${res.status}`);
+
+        const text = await res.text();
+        if (text.trim().startsWith('<!DOCTYPE html>') || text.includes('accounts.google.com')) {
+          throw new Error('RESTRICTED_SHEET');
+        }
+
+        parseCsvPayload(text, 'Google Sheets (Streaming)');
+        const now = new Date().toLocaleTimeString('pt-BR');
+        document.getElementById('last-sync-timestamp').textContent = `Última leitura ao vivo: ${now}`;
+        updateLiveBadge('live', 'AO VIVO • Streaming', `(${state.secondsRemaining || 30}s)`);
+
+        if (notify) showToast('Planilha vinculada e sincronizada em tempo real!', 'success');
+      } catch (err) {
+        console.error(err);
+        updateLiveBadge('error', 'Erro na Leitura', '');
+        if (err.message === 'RESTRICTED_SHEET') {
+          showToast('Planilha restrita! Altere o compartilhamento para "Qualquer pessoa com o link".', 'error');
+        } else if (notify) {
+          showToast('Falha ao conectar com a planilha. Verifique o link e as permissões.', 'error');
+        }
+      } finally {
+        icon.classList.remove('animate-spin');
+      }
+    }
+
+    function handleLocalCsvUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      stopSimulationTimer();
+      document.getElementById('csv-file-label').textContent = file.name;
+
+      const reader = new FileReader();
+      reader.onload = ev => {
+        parseCsvPayload(ev.target.result, `Arquivo CSV: ${file.name}`);
+        const now = new Date().toLocaleTimeString('pt-BR');
+        document.getElementById('last-sync-timestamp').textContent = `Importado às ${now}`;
+        updateLiveBadge('live', 'CSV Carregado', '');
+        showToast(`Arquivo "${file.name}" carregado com sucesso!`, 'success');
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function parseCsvPayload(csvText, sourceName) {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: results => {
+          if (!results.data || results.data.length === 0) return;
+          state.rawRows = results.data;
+          state.headers = results.meta.fields || Object.keys(results.data[0]);
+          setupColumnMapping();
+          processRawRows();
+        }
+      });
+    }
+
+    function setupColumnMapping() {
+      const sec = document.getElementById('mapping-section');
+      sec.classList.remove('hidden');
+      document.getElementById('rows-loaded-badge').textContent = `${state.rawRows.length} respostas lidas`;
+
+      const selMun = document.getElementById('col-municipio');
+      const selCur = document.getElementById('col-curso');
+      const selRed = document.getElementById('col-rede');
+
+      const opts = state.headers.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+      selMun.innerHTML = opts;
+      selCur.innerHTML = opts;
+      selRed.innerHTML = opts;
+
+      const detect = (keywords, fallback) => {
+        for (const k of keywords) {
+          const match = state.headers.find(h => normalizeText(h).includes(k));
+          if (match) return match;
+        }
+        return state.headers[Math.min(fallback, state.headers.length - 1)] || '';
+      };
+
+      selMun.value = state.headers.includes(state.mapping.municipio) ? state.mapping.municipio : detect(['municipio', 'cidade', 'localidade'], 1);
+      selCur.value = state.headers.includes(state.mapping.curso) ? state.mapping.curso : detect(['curso', 'formacao', 'modalidade', 'aee'], 2);
+      selRed.value = state.headers.includes(state.mapping.rede) ? state.mapping.rede : detect(['rede', 'esfera', 'secretaria', 'vinculo'], 3);
+
+      state.mapping = {
+        municipio: selMun.value,
+        curso: selCur.value,
+        rede: selRed.value
+      };
+      saveStateToStorage();
+    }
+
+    function processRawRows() {
+      const colMun = document.getElementById('col-municipio').value;
+      const colCur = document.getElementById('col-curso').value;
+      const colRed = document.getElementById('col-rede').value;
+
+      state.mapping = { municipio: colMun, curso: colCur, rede: colRed };
+      saveStateToStorage();
+
+      const munList = buildFreshMunicipalities();
+      const indexByMun = {};
+      munList.forEach(m => {
+        const k = resolveMunicipioKey(m.municipio);
+        if (!indexByMun[k]) indexByMun[k] = [];
+        indexByMun[k].push(m);
+      });
+
+      const processedRecords = [];
+      let unmatched = 0;
+
+      // Identifica coluna de carimbo de data/hora e colunas extras (nome, email, cpf, etc.)
+      const timestampCol = state.headers.find(h => normalizeText(h).includes('carimbo') || normalizeText(h).includes('data') || normalizeText(h).includes('timestamp')) || state.headers[0];
+      const extraCols = state.headers.filter(h => h !== colMun && h !== colCur && h !== colRed && h !== timestampCol);
+
+      state.rawRows.forEach((row, idx) => {
+        const rawMun = row[colMun];
+        if (!rawMun) return;
+
+        const key = resolveMunicipioKey(rawMun);
+        const candidates = indexByMun[key];
+        if (!candidates || candidates.length === 0) {
+          unmatched++;
+          return;
+        }
+
+        const normCur = normalizeText(row[colCur]);
+        const normRed = normalizeText(row[colRed]);
+
+        const isAee = normCur.includes('aee') || normCur.includes('especial') || normCur.includes('atendimento');
+        const isEst = normRed.includes('estadual') || normRed.includes('seduc') || normRed.includes('estado');
+
+        // Seleciona registro (se Caapiranga, preenche primeiro o que tem saldo)
+        let target = candidates[0];
+        if (candidates.length > 1) {
+          const free = candidates.find(c => {
+            if (isAee && isEst) return c.insAeeEst < c.aeeEst;
+            if (isAee && !isEst) return c.insAeeMun < c.aeeMun;
+            if (!isAee && isEst) return c.insProfEst < c.profEst;
+            return c.insProfMun < c.profMun;
+          });
+          if (free) target = free;
+        }
+
+        let isOverLimit = false;
+        if (isAee) {
+          if (isEst) {
+            target.insAeeEst++;
+            isOverLimit = target.insAeeEst > target.aeeEst;
+          } else {
+            target.insAeeMun++;
+            isOverLimit = target.insAeeMun > target.aeeMun;
+          }
+        } else {
+          if (isEst) {
+            target.insProfEst++;
+            isOverLimit = target.insProfEst > target.profEst;
+          } else {
+            target.insProfMun++;
+            isOverLimit = target.insProfMun > target.profMun;
+          }
+        }
+
+        const extraSummary = extraCols
+          .slice(0, 3)
+          .map(c => row[c])
+          .filter(Boolean)
+          .join(' • ');
+
+        processedRecords.push({
+          seq: idx + 1,
+          timestamp: row[timestampCol] || '--',
+          municipio: target.municipio,
+          polo: target.polo,
+          curso: isAee ? 'AEE' : 'Professores',
+          rede: isEst ? 'Estadual' : 'Municipal',
+          extra: extraSummary || 'Inscrição confirmada via formulário',
+          excedente: isOverLimit
+        });
+      });
+
+      munList.forEach(m => {
+        m.totalInscritos = m.insProfMun + m.insProfEst + m.insAeeMun + m.insAeeEst;
+      });
+
+      state.municipalities = munList;
+      state.individualRecords = processedRecords;
+
+      const warn = document.getElementById('unmatched-alert');
+      if (unmatched > 0) {
+        warn.classList.remove('hidden');
+        warn.textContent = `Aviso: ${unmatched} linha(s) não puderam ser associadas a um município oficial. Confira o mapeamento acima.`;
+      } else {
+        warn.classList.add('hidden');
+      }
+
+      refreshAllViews();
+    }
+
+    /**
+     * ============================================================================
+     * 4. SIMULAÇÃO EM STREAMING AO VIVO (DEMONSTRAÇÃO)
+     * ============================================================================
+     */
+    function toggleLiveSimulation() {
+      if (state.isSimulating) {
+        stopSimulationTimer();
+        showToast('Simulação ao vivo pausada.', 'dark');
+        return;
+      }
+
+      clearInterval(state.streamTimer);
+      clearInterval(state.countdownTimer);
+      state.isSimulating = true;
+      document.getElementById('btn-live-sim-text').textContent = 'Pausar Simulação ao Vivo';
+      updateLiveBadge('live', 'AO VIVO • Simulação', '(2s)');
+
+      // Popula lote inicial se estiver zerado
+      if (state.individualRecords.length === 0) {
+        injectSimulatedBatch(420);
+      }
+
+      state.simTimer = setInterval(() => {
+        injectSimulatedBatch(18);
+        const now = new Date().toLocaleTimeString('pt-BR');
+        document.getElementById('last-sync-timestamp').textContent = `Streaming simulado: +18 respostas às ${now}`;
+      }, 2000);
+
+      showToast('Streaming simulado iniciado! Novas inscrições entram a cada 2 segundos.', 'orange');
+    }
+
+    function stopSimulationTimer() {
+      state.isSimulating = false;
+      clearInterval(state.simTimer);
+      document.getElementById('btn-live-sim-text').textContent = 'Simular Inscrições ao Vivo';
+    }
+
+    function injectSimulatedBatch(count) {
+      const sampleNames = [
+        'Ana Paula Souza', 'Carlos Eduardo Lima', 'Mariana Silva Santos', 'João Pedro Almeida',
+        'Fernanda Costa Oliveira', 'Rafael Nascimento', 'Juliana Pereira', 'Lucas Mendes',
+        'Patrícia Rocha', 'Gabriel Ferreira', 'Camila Ribeiro', 'Rodrigo Barbosa'
+      ];
+
+      for (let i = 0; i < count; i++) {
+        // Favorece alguns municípios para demonstrar lotação e excedentes
+        const pickIdx = (Math.random() < 0.35)
+          ? Math.floor(Math.random() * 6) // Primeiros municípios (Manaus, Manacapuru, Pres. Figueiredo, etc.)
+          : Math.floor(Math.random() * state.municipalities.length);
+
+        const target = state.municipalities[pickIdx];
+        const isAee = Math.random() < 0.42;
+        const isEst = target.noPublicEst ? false : (Math.random() < 0.5);
+
+        let isOverLimit = false;
+        if (isAee) {
+          if (isEst) {
+            target.insAeeEst++;
+            isOverLimit = target.insAeeEst > target.aeeEst;
+          } else {
+            target.insAeeMun++;
+            isOverLimit = target.insAeeMun > target.aeeMun;
+          }
+        } else {
+          if (isEst) {
+            target.insProfEst++;
+            isOverLimit = target.insProfEst > target.profEst;
+          } else {
+            target.insProfMun++;
+            isOverLimit = target.insProfMun > target.profMun;
+          }
+        }
+
+        target.totalInscritos = target.insProfMun + target.insProfEst + target.insAeeMun + target.insAeeEst;
+
+        const name = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+        const nowStr = new Date().toLocaleString('pt-BR');
+
+        state.individualRecords.unshift({
+          seq: state.individualRecords.length + 1,
+          timestamp: nowStr,
+          municipio: target.municipio,
+          polo: target.polo,
+          curso: isAee ? 'AEE' : 'Professores',
+          rede: isEst ? 'Estadual' : 'Municipal',
+          extra: `${name} • Matrícula #${10000 + state.individualRecords.length}`,
+          excedente: isOverLimit
+        });
+      }
+
+      refreshAllViews();
+    }
+
+    function resetAllSubscriptions() {
+      stopSimulationTimer();
+      clearInterval(state.streamTimer);
+      clearInterval(state.countdownTimer);
+      state.sheetsUrl = '';
+      state.rawRows = [];
+      state.individualRecords = [];
+      state.municipalities = buildFreshMunicipalities();
+      localStorage.removeItem(STORAGE_KEY);
+
+      document.getElementById('sheets-url-input').value = '';
+      document.getElementById('csv-file-label').textContent = 'Importar arquivo .CSV local';
+      document.getElementById('mapping-section').classList.add('hidden');
+      document.getElementById('last-sync-timestamp').textContent = 'Última leitura: aguardando conexão';
+      updateLiveBadge('offline', 'Streaming Off-line', '');
+
+      refreshAllViews();
+      showToast('Inscrições zeradas e streaming interrompido.', 'dark');
+    }
+
+    /**
+     * ============================================================================
+     * 5. ATUALIZAÇÃO DE KPIS, TABELA SUPERIOR, GRÁFICOS POR POLO E SEÇÃO INFERIOR
+     * ============================================================================
+     */
+    function refreshAllViews() {
+      updateTopKPIs();
+      renderTopSummaryTable();
+      updatePoloCharts();
+      renderBottomMunicipalitySection();
+    }
+
+    function updateTopKPIs() {
+      let maxVagas = 0;
+      let totalInscritos = 0;
+      let faltamTotal = 0;
+      let excedenteTotal = 0;
+      let municipiosExcedentes = 0;
+
+      state.municipalities.forEach(m => {
+        maxVagas += m.maxVagas;
+        totalInscritos += m.totalInscritos;
+        if (m.totalInscritos < m.maxVagas) {
+          faltamTotal += (m.maxVagas - m.totalInscritos);
+        } else if (m.totalInscritos > m.maxVagas) {
+          excedenteTotal += (m.totalInscritos - m.maxVagas);
+          municipiosExcedentes++;
+        }
+      });
+
+      const pct = maxVagas > 0 ? (totalInscritos / maxVagas) * 100 : 0;
+
+      document.getElementById('kpi-max-vagas').textContent = formatNumber(maxVagas);
+      document.getElementById('kpi-total-inscritos').textContent = formatNumber(totalInscritos);
+      document.getElementById('kpi-pct-geral').textContent = formatPercent(pct);
+      document.getElementById('kpi-faltam-vagas').textContent = formatNumber(faltamTotal);
+      document.getElementById('kpi-excedentes').textContent = formatNumber(excedenteTotal);
+      document.getElementById('kpi-mun-excedentes').textContent = formatNumber(municipiosExcedentes);
+    }
+
+    /**
+     * SEÇÃO 1: Tabela Consolidada de Todos os Municípios (Acima dos Gráficos)
+     */
+    function renderTopSummaryTable() {
+      const query = normalizeText(document.getElementById('top-table-search').value);
+      const statusFilter = document.getElementById('top-table-status').value;
+
+      const filtered = state.municipalities.filter(m => {
+        if (query && !normalizeText(m.municipio).includes(query) && !normalizeText(m.polo).includes(query)) {
+          return false;
+        }
+        if (statusFilter === 'DISPONIVEL' && m.totalInscritos >= m.maxVagas) return false;
+        if (statusFilter === 'LOTADO' && m.totalInscritos !== m.maxVagas) return false;
+        if (statusFilter === 'EXCEDENTE' && m.totalInscritos <= m.maxVagas) return false;
+        return true;
+      });
+
+      let sumMax = 0, sumIns = 0, sumFaltam = 0, sumExcedente = 0;
+
+      const tbody = document.getElementById('top-summary-tbody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="py-8 text-center text-slate-500 text-sm">
+              Nenhum município encontrado para o filtro aplicado.
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = filtered.map(m => {
+          const faltam = m.totalInscritos < m.maxVagas ? (m.maxVagas - m.totalInscritos) : 0;
+          const ultrapassou = m.totalInscritos > m.maxVagas ? (m.totalInscritos - m.maxVagas) : 0;
+          const pct = m.maxVagas > 0 ? (m.totalInscritos / m.maxVagas) * 100 : 0;
+          const barW = Math.min(pct, 100);
+
+          sumMax += m.maxVagas;
+          sumIns += m.totalInscritos;
+          sumFaltam += faltam;
+          sumExcedente += ultrapassou;
+
+          // Célula "Faltam para o Máximo"
+          let faltamHtml = '';
+          if (faltam > 0) {
+            faltamHtml = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Faltam ${faltam}</span>`;
+          } else {
+            faltamHtml = `<span class="text-xs font-medium text-slate-400">0 (Atingido)</span>`;
+          }
+
+          // Célula "Ultrapassou o Máximo"
+          let excedenteHtml = '';
+          if (ultrapassou > 0) {
+            excedenteHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-300">+${ultrapassou} excedentes</span>`;
+          } else if (m.totalInscritos === m.maxVagas) {
+            excedenteHtml = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-100 text-brand-800">No Limite (100%)</span>`;
+          } else {
+            excedenteHtml = `<span class="text-xs text-slate-400">—</span>`;
+          }
+
+          const barColor = ultrapassou > 0 ? 'bg-rose-600' : (m.totalInscritos === m.maxVagas ? 'bg-emerald-600' : 'bg-brand-500');
+          const estLabel = m.noPublicEst ? 'Não há púb.' : `${m.profEst}/${m.aeeEst}`;
+
+          return `
+            <tr class="hover:bg-brand-50/40 transition-colors">
+              <td class="py-3 px-4">
+                <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold bg-brand-50 text-brand-800 border border-brand-200">
+                  ${m.polo}
+                </span>
+                <span class="block text-[10px] text-slate-400 mt-0.5">${m.bimestre}</span>
+              </td>
+              <td class="py-3 px-4 font-bold text-slate-900">
+                <button onclick="selectMunicipalityInBottom('${escapeHtml(m.municipio)}')" class="text-left hover:text-brand-600 hover:underline cursor-pointer" title="Ver detalhes deste município abaixo">
+                  ${m.municipio}
+                </button>
+              </td>
+              <td class="py-3 px-3 text-center text-xs text-slate-600">
+                <span title="Prof. Municipal / Prof. Estadual">Prof: <strong>${m.profMun}</strong>/${m.noPublicEst ? '0*' : m.profEst}</span> •
+                <span title="AEE Municipal / AEE Estadual">AEE: <strong>${m.aeeMun}</strong>/${m.noPublicEst ? '0*' : m.aeeEst}</span>
+              </td>
+              <td class="py-3 px-3 text-center font-bold text-slate-800">
+                ${m.maxVagas}
+              </td>
+              <td class="py-3 px-3 text-center font-extrabold text-brand-600 text-base">
+                ${m.totalInscritos}
+              </td>
+              <td class="py-3 px-4 text-center">
+                ${faltamHtml}
+              </td>
+              <td class="py-3 px-4 text-center">
+                ${excedenteHtml}
+              </td>
+              <td class="py-3 px-4">
+                <div class="flex items-center justify-between text-[11px] mb-1">
+                  <span class="font-bold text-slate-700">${formatPercent(pct)}</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div class="${barColor} h-2 rounded-full transition-all duration-300" style="width: ${barW}%"></div>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const totPct = sumMax > 0 ? (sumIns / sumMax) * 100 : 0;
+      document.getElementById('top-summary-tfoot').innerHTML = `
+        <tr>
+          <td colspan="3" class="py-3 px-4 uppercase">Total Consolidado (${filtered.length} registros)</td>
+          <td class="py-3 px-3 text-center">${formatNumber(sumMax)}</td>
+          <td class="py-3 px-3 text-center text-brand-400 text-sm">${formatNumber(sumIns)}</td>
+          <td class="py-3 px-4 text-center text-emerald-300">Faltam ${formatNumber(sumFaltam)}</td>
+          <td class="py-3 px-4 text-center text-rose-300">+${formatNumber(sumExcedente)} excedentes</td>
+          <td class="py-3 px-4">${formatPercent(totPct)}</td>
+        </tr>
+      `;
+    }
+
+    /**
+     * SEÇÃO 2: Gráficos de Pizza e Barras por Município, Filtrados por Polo
+     */
+    function updatePoloCharts() {
+      const selectedPolo = document.getElementById('polo-chart-filter').value;
+      const pieMode = document.getElementById('pie-metric-mode').value;
+
+      document.getElementById('polo-chart-badge').textContent = selectedPolo === 'TODOS' ? 'TODOS OS PÓLOS (62 REGISTROS)' : selectedPolo;
+
+      let items = [];
+      if (selectedPolo === 'TODOS') {
+        // Agrupa os 9 Polos para não poluir o gráfico quando "Todos" está marcado
+        const mapPolos = {};
+        state.municipalities.forEach(m => {
+          if (!mapPolos[m.polo]) {
+            mapPolos[m.polo] = { label: m.polo.replace('POLO ', ''), maxVagas: 0, totalInscritos: 0 };
+          }
+          mapPolos[m.polo].maxVagas += m.maxVagas;
+          mapPolos[m.polo].totalInscritos += m.totalInscritos;
+        });
+        items = Object.values(mapPolos);
+        document.getElementById('pie-chart-subtitle').textContent = 'Proporção consolidada entre os 9 Pólos Educacionais';
+        document.getElementById('bar-chart-subtitle').textContent = 'Comparativo Vagas Máximas vs. Inscrições por Pólo';
+      } else {
+        // Lista cada município pertencente ao Polo filtrado
+        items = state.municipalities
+          .filter(m => m.polo === selectedPolo)
+          .map(m => ({
+            label: m.municipio,
+            maxVagas: m.maxVagas,
+            totalInscritos: m.totalInscritos
+          }));
+        document.getElementById('pie-chart-subtitle').textContent = `Distribuição por município dentro do ${selectedPolo}`;
+        document.getElementById('bar-chart-subtitle').textContent = `Municípios do ${selectedPolo}: Limite Máximo vs. Inscrições`;
+      }
+
+      const labels = items.map(i => i.label);
+      const vagasData = items.map(i => i.maxVagas);
+      const inscritosData = items.map(i => i.totalInscritos);
+
+      const totalInsInSlice = inscritosData.reduce((a, b) => a + b, 0);
+      let useInscritosForPie = false;
+      if (pieMode === 'INSCRITOS') useInscritosForPie = true;
+      else if (pieMode === 'VAGAS') useInscritosForPie = false;
+      else useInscritosForPie = totalInsInSlice > 0;
+
+      const pieValues = useInscritosForPie ? inscritosData : vagasData;
+      const pieDatasetLabel = useInscritosForPie ? 'Inscrições Recebidas' : 'Vagas Ofertadas';
+
+      // Paleta Laranja + Tons Complementares Quentes e Neutros Elegantes
+      const orangePalette = [
+        '#ea580c', '#f97316', '#fb923c', '#fdba74', '#c2410c',
+        '#9a3412', '#f59e0b', '#d97706', '#475569', '#94a3b8', '#fed7aa'
+      ];
+
+      // 1. Gráfico de Pizza
+      const ctxPie = document.getElementById('chart-polo-pie').getContext('2d');
+      if (state.charts.pie) state.charts.pie.destroy();
+
+      state.charts.pie = new Chart(ctxPie, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: pieDatasetLabel,
+            data: pieValues,
+            backgroundColor: labels.map((_, idx) => orangePalette[idx % orangePalette.length]),
+            borderColor: '#ffffff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                padding: 10,
+                font: { family: 'Inter', size: 11, weight: '600' },
+                color: '#1e293b'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const val = ctx.parsed || 0;
+                  const sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = sum > 0 ? ((val / sum) * 100).toFixed(1) : '0.0';
+                  return ` ${ctx.label}: ${formatNumber(val)} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Gráfico de Barras
+      const ctxBar = document.getElementById('chart-polo-bar').getContext('2d');
+      if (state.charts.bar) state.charts.bar.destroy();
+
+      state.charts.bar = new Chart(ctxBar, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Limite Máximo de Vagas',
+              data: vagasData,
+              backgroundColor: '#cbd5e1',
+              borderRadius: 6,
+              barPercentage: 0.75
+            },
+            {
+              label: 'Inscrições Recebidas',
+              data: inscritosData,
+              backgroundColor: '#f97316',
+              borderRadius: 6,
+              barPercentage: 0.75
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                font: { family: 'Inter', size: 12, weight: '600' },
+                color: '#1e293b'
+              }
+            },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'Inter', size: 11, weight: '500' }, color: '#334155' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#e2e8f0' },
+              ticks: { font: { family: 'Inter', size: 11 }, color: '#475569' }
+            }
+          }
+        }
+      });
+    }
+
+    /**
+     * SEÇÃO 3 (PARTE DE BAIXO): Filtro por Município, Quantitativo Total e Registros
+     */
+    function populateBottomMunicipalityDropdown() {
+      const sel = document.getElementById('bottom-municipality-filter');
+      const uniqueNames = [...new Set(OFFICIAL_MUNICIPALITIES.map(m => m.municipio))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      const opts = uniqueNames.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      sel.innerHTML = `<option value="TODOS">Todos os Municípios (62 registros)</option>` + opts;
+    }
+
+    function selectMunicipalityInBottom(munName) {
+      const sel = document.getElementById('bottom-municipality-filter');
+      sel.value = munName;
+      renderBottomMunicipalitySection();
+      sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function renderBottomMunicipalitySection() {
+      const selectedMun = document.getElementById('bottom-municipality-filter').value;
+
+      const matchingMuns = selectedMun === 'TODOS'
+        ? state.municipalities
+        : state.municipalities.filter(m => m.municipio === selectedMun);
+
+      let totMax = 0, totIns = 0;
+      let pmMax = 0, pmIns = 0;
+      let peMax = 0, peIns = 0;
+      let amMax = 0, amIns = 0;
+      let aeMax = 0, aeIns = 0;
+      let noPublicEst = false;
+
+      matchingMuns.forEach(m => {
+        totMax += m.maxVagas; totIns += m.totalInscritos;
+        pmMax  += m.profMun;  pmIns  += m.insProfMun;
+        peMax  += m.profEst;  peIns  += m.insProfEst;
+        amMax  += m.aeeMun;   amIns  += m.insAeeMun;
+        aeMax  += m.aeeEst;   aeIns  += m.insAeeEst;
+        if (m.noPublicEst) noPublicEst = true;
+      });
+
+      const polosText = [...new Set(matchingMuns.map(m => m.polo))].join(' • ');
+      document.getElementById('bottom-selected-title').textContent = selectedMun === 'TODOS'
+        ? 'Quantitativo Total: Todos os Municípios do Amazonas'
+        : `Quantitativo Total: ${selectedMun}`;
+      document.getElementById('bottom-selected-polo-badge').textContent = selectedMun === 'TODOS'
+        ? '9 Pólos Educacionais'
+        : polosText;
+
+      // Atualiza Cards de Quantitativo Total
+      document.getElementById('bm-tot-ins').textContent = formatNumber(totIns);
+      document.getElementById('bm-tot-max').textContent = formatNumber(totMax);
+      const totDiff = totMax - totIns;
+      document.getElementById('bm-tot-status').textContent = totDiff > 0
+        ? `Faltam ${formatNumber(totDiff)} vagas para o máximo`
+        : totDiff === 0
+          ? 'Limite máximo exato atingido (100%)'
+          : `Ultrapassou o máximo em +${formatNumber(Math.abs(totDiff))} inscrições!`;
+
+      const updateAxisCard = (insId, maxId, diffId, ins, max, isNoPub = false) => {
+        document.getElementById(insId).textContent = formatNumber(ins);
+        document.getElementById(maxId).textContent = isNoPub ? '0 (Não há público)' : formatNumber(max);
+        const el = document.getElementById(diffId);
+        if (isNoPub && ins === 0) {
+          el.textContent = 'Não há público estadual';
+          el.className = 'text-xs font-medium text-slate-400 mt-2 pt-2 border-t border-slate-100';
+          return;
+        }
+        const diff = max - ins;
+        if (diff > 0) {
+          el.textContent = `Faltam ${formatNumber(diff)} vagas`;
+          el.className = 'text-xs font-semibold text-emerald-700 mt-2 pt-2 border-t border-slate-100';
+        } else if (diff === 0) {
+          el.textContent = 'No limite (100%)';
+          el.className = 'text-xs font-bold text-brand-600 mt-2 pt-2 border-t border-slate-100';
+        } else {
+          el.textContent = `Ultrapassou +${formatNumber(Math.abs(diff))}`;
+          el.className = 'text-xs font-bold text-rose-600 mt-2 pt-2 border-t border-slate-100';
+        }
+      };
+
+      updateAxisCard('bm-pm-ins', 'bm-pm-max', 'bm-pm-diff', pmIns, pmMax);
+      updateAxisCard('bm-pe-ins', 'bm-pe-max', 'bm-pe-diff', peIns, peMax, selectedMun !== 'TODOS' && noPublicEst);
+      updateAxisCard('bm-am-ins', 'bm-am-max', 'bm-am-diff', amIns, amMax);
+      updateAxisCard('bm-ae-ins', 'bm-ae-max', 'bm-ae-diff', aeIns, aeMax, selectedMun !== 'TODOS' && noPublicEst);
+
+      renderBottomRecordsTable();
+    }
+
+    function renderBottomRecordsTable() {
+      const selectedMun = document.getElementById('bottom-municipality-filter').value;
+      const textFilter = normalizeText(document.getElementById('bottom-record-search').value);
+
+      const records = state.individualRecords.filter(r => {
+        if (selectedMun !== 'TODOS' && r.municipio !== selectedMun) return false;
+        if (textFilter) {
+          const hay = normalizeText(`${r.municipio} ${r.curso} ${r.rede} ${r.extra} ${r.timestamp}`);
+          if (!hay.includes(textFilter)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('bottom-records-count').textContent = formatNumber(records.length);
+
+      const tbody = document.getElementById('bottom-records-tbody');
+      if (records.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-8 text-center text-slate-500 text-xs sm:text-sm">
+              Nenhum registro de inscrição encontrado para este filtro. Vincule sua planilha no painel superior ou clique em "Simular Inscrições ao Vivo".
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      // Exibe até 150 registros mais recentes para fluidez em tempo real
+      const visibleRecords = records.slice(0, 150);
+      tbody.innerHTML = visibleRecords.map((r, i) => {
+        const statusBadge = r.excedente
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700">Excedente / Espera</span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">Dentro do Limite</span>`;
+
+        const cursoBadge = r.curso === 'AEE'
+          ? `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-brand-100 text-brand-800">AEE</span>`
+          : `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-800">Professores</span>`;
+
+        return `
+          <tr class="hover:bg-brand-50/40 transition-colors">
+            <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${i + 1}</td>
+            <td class="py-2.5 px-4 text-xs text-slate-600 whitespace-nowrap">${escapeHtml(r.timestamp)}</td>
+            <td class="py-2.5 px-4 font-bold text-slate-900">${escapeHtml(r.municipio)}</td>
+            <td class="py-2.5 px-4">${cursoBadge}</td>
+            <td class="py-2.5 px-4 text-xs font-medium text-slate-700">${escapeHtml(r.rede)}</td>
+            <td class="py-2.5 px-4 text-xs text-slate-600">${escapeHtml(r.extra)}</td>
+            <td class="py-2.5 px-4 text-right whitespace-nowrap">${statusBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /**
+     * ============================================================================
+     * 6. UTILITÁRIOS DE UI, EXPORTAÇÃO E PERSISTÊNCIA
+     * ============================================================================
+     */
+    function toggleStreamPanel() {
+      const body = document.getElementById('stream-panel-body');
+      const chev = document.getElementById('stream-chevron');
+      body.classList.toggle('hidden');
+      chev.classList.toggle('rotate-180');
+    }
+
+    function updateLiveBadge(mode, text, countdown) {
+      const dot = document.getElementById('live-dot');
+      const ping = document.getElementById('live-ping');
+      const label = document.getElementById('live-status-label');
+      const cd = document.getElementById('stream-countdown');
+
+      label.textContent = text;
+      cd.textContent = countdown || '';
+
+      if (mode === 'live') {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-500';
+        ping.classList.remove('hidden');
+      } else if (mode === 'error') {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500';
+        ping.classList.add('hidden');
+      } else {
+        dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400';
+        ping.classList.add('hidden');
+      }
+    }
+
+    function exportConsolidatedCSV() {
+      const headers = [
+        'Polo', 'Bimestre', 'Municipio',
+        'Prof_Mun_Max', 'Prof_Mun_Inscritos',
+        'Prof_Est_Max', 'Prof_Est_Inscritos',
+        'AEE_Mun_Max', 'AEE_Mun_Inscritos',
+        'AEE_Est_Max', 'AEE_Est_Inscritos',
+        'Maximo_Total', 'Inscricoes_Recebidas',
+        'Faltam_Para_Maximo', 'Ultrapassou_Maximo'
+      ];
+
+      const lines = [headers.join(';')];
+      state.municipalities.forEach(m => {
+        const faltam = m.totalInscritos < m.maxVagas ? (m.maxVagas - m.totalInscritos) : 0;
+        const excede = m.totalInscritos > m.maxVagas ? (m.totalInscritos - m.maxVagas) : 0;
+        lines.push([
+          `"${m.polo}"`, `"${m.bimestre}"`, `"${m.municipio}"`,
+          m.profMun, m.insProfMun,
+          m.noPublicEst ? '"Nao ha publico"' : m.profEst, m.insProfEst,
+          m.aeeMun, m.insAeeMun,
+          m.noPublicEst ? '"Nao ha publico"' : m.aeeEst, m.insAeeEst,
+          m.maxVagas, m.totalInscritos, faltam, excede
+        ].join(';'));
+      });
+
+      const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Vagas_Inscricoes_Amazonas_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Planilha consolidada exportada com sucesso!', 'success');
+    }
+
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          sheetsUrl: state.sheetsUrl,
+          mapping: state.mapping
+        }));
+      } catch (e) {}
+    }
+
+    function loadStateFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      state.municipalities = buildFreshMunicipalities();
+      populateBottomMunicipalityDropdown();
+
+      const saved = loadStateFromStorage();
+      if (saved) {
+        if (saved.mapping) state.mapping = saved.mapping;
+        if (saved.sheetsUrl) {
+          state.sheetsUrl = saved.sheetsUrl;
+          document.getElementById('sheets-url-input').value = saved.sheetsUrl;
+          fetchStreamNow(false);
+          scheduleStreamingLoop();
+        }
+      }
+
+      refreshAllViews();
+    });
+  </script>
+</body>
+</html>
